@@ -47,5 +47,94 @@ response <- request(table_url) |>
 
 content <- resp_body_json(response)
 
-content$data |> 
-  map(\(data) tibble(key = key))
+# Extract column names
+col_names <- content$columns |> map_chr("text")
+
+# Convert to tibble
+df_1 <- content$data |>
+  map_dfr(\(row) {
+    c(row$key, row$values) |>
+      set_names(col_names) |>
+      as_tibble()
+  }) |>
+  mutate(
+    år = as.integer(år),
+    across(last_col(), as.numeric),
+    kommun = case_when(
+      region == "0180" ~ "Stockholm",
+      region == "1280" ~ "Malmö",
+      region == "1480" ~ "Göteborg",
+      .default = region
+    )
+  )
+
+# Second data frame - BO0104T04
+table_url_2 <- "https://api.scb.se/OV0104/v1/doris/sv/ssd/START/BO/BO0104/BO0104D/BO0104T04"
+
+query_json_str_2 <- '{
+  "query": [
+    {
+      "code": "Region",
+      "selection": {
+        "filter": "vs:RegionKommun07",
+        "values": [
+          "0180",
+          "1280",
+          "1480"
+        ]
+      }
+    },
+    {
+      "code": "Hustyp",
+      "selection": {
+        "filter": "item",
+        "values": [
+          "SMÅHUS",
+          "FLERBOST"
+        ]
+      }
+    },
+    {
+      "code": "Upplatelseform",
+      "selection": {
+        "filter": "item",
+        "values": [
+          "2",
+          "3"
+        ]
+      }
+    }
+  ],
+  "response": {
+    "format": "json"
+  }
+}'
+
+# POST-förfrågan till SCB:s API
+response_2 <- request(table_url_2) |>
+  req_method("POST") |>
+  req_body_raw(query_json_str_2, type = "application/json") |>
+  req_perform()
+
+content_2 <- resp_body_json(response_2)
+
+# Extract column names
+col_names_2 <- content_2$columns |> map_chr("text")
+
+# Convert to tibble
+df_2 <- content_2$data |>
+  map_dfr(\(row) {
+    c(row$key, row$values) |>
+      set_names(col_names_2) |>
+      as_tibble()
+  }) |>
+  mutate(
+    år = as.integer(år),
+    across(last_col(), as.numeric),
+    kommun = case_when(
+      region == "0180" ~ "Stockholm",
+      region == "1280" ~ "Malmö",
+      region == "1480" ~ "Göteborg",
+      .default = region
+    )
+  )

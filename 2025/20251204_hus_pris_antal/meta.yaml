@@ -1,21 +1,15 @@
-title: DESCRIPTIVE TITLE THAT FITS THE SENTENCE "This week we're exploring {title}!"
-article:
-  title: TITLE OF ARTICLE THAT USES OR DESCRIBES THE DATASET
-  url: URL OF THAT ARTICLE
-data_source:
-  title: TITLE OF THE SOURCE OF THE DATA
-  url: URL TO THAT SOURCE
-images:
-# Please include at least one image, and up to three images
-- file: FILENAME.png
-  alt: >
-    ALT TEXT FOR THIS IMAGE. THIS TEXT SHOULD BE IN "Sentence case." AND SHOULD 
-    SERVE AS A *REPLACEMENT* FOR THE IMAGE, NOT JUST *DESCRIBE* THE IMAGE
-credit:
-# We want to thank you for curating this dataset! If you do not want a 
-# particular type of credit, please delete the related line.
-  post: YOUR NAME AND AFFILIATION FOR CREDIT IN POST
-  bluesky: https://bsky.app/profile/YOURNAME
-  linkedin: https://www.linkedin.com/in/YOURNAME
-  mastodon: "@YOURNAME@YOURSERVER"
-  github: https://github.com/YOURNAME
+title: "Plotting the price and availability of specified housing in specified municipally"
+data_source_1:
+  title: "Försålda småhus efter region (kommun, län, riket) och fastighetstyp. År 1981 - 2024"
+  description: "Assessed value for small house, region and year."
+  url: |
+  "https://www.statistikdatabasen.scb.se/pxweb/sv/ssd/START__BO__BO0501__BO0501B/FastprisSHRegionAr/"
+data_source_2:
+  title: "Antal lägenheter efter region, hustyp och upplåtelseform (inklusive specialbostäder). År 1990 - 2024"
+  url: |
+  "https://www.statistikdatabasen.scb.se/pxweb/sv/ssd/START__BO__BO0104__BO0104D/BO0104T04/"
+data_source_3:
+  title: "Bostadsstatistik direkt från fastighetsmäklarnas affärssystem"
+  description: "Yearly statistics of commondiums, created using the web scraper"
+  url: |
+  "https://www.maklarstatistik.se/"

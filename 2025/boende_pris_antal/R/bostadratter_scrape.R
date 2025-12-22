@@ -11,9 +11,9 @@ library(glue)
 library(fs)
 library(cli)
 library(jsonlite)
-source("2025/20251204_hus_pris_antal/R/scrape_kommun.R")
+source("2025/boende_pris_antal/R/scrape_kommun.R")
 
-target_path <- path("2025/20251204_hus_pris_antal/data/raw/")
+target_path <- path("2025/boende_pris_antal/data/raw/")
 
 cli_h1("Mäklarstatistik - All 290 Swedish Municipalities")
 cli_alert_info("Using {{polite}} package for respectful web scraping")

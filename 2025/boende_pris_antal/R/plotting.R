@@ -8,7 +8,7 @@ library(scales)
 # Fonts
 font_add_google("DM Serif Text", "DM")
 showtext_auto()
-showtext_opts(dpi = 280)
+showtext_opts(dpi = 285)
 
 body_font <- "DM"
 title_font <- "DM"
@@ -72,8 +72,7 @@ plot <- plot_data |>
   
   # Labels
   labs(
-    title = "Bostadsrätter och småhus i Sverige, utbud och pris för år 
-    {floor(frame_time)}", 
+    title = "Utbud och pris för flerbostäder och småhus år {floor(frame_time)}", 
     subtitle = "Bostadsbyggandet de senaste 30 åren har dominerats av 
       flerbostäder (bostadsrätter) i Stockholm; småhus har i princip inte byggts.  
       Samtidigt har priserna ökat för småhus och flerbostadshus i hela riket, 
@@ -81,17 +80,15 @@ plot <- plot_data |>
       stora skillnader i förmögenhet mellan generationerna.
       <br>
       <br>
-      **Pris** avser *kronor per kvadratmeter* (flerbostadshus) eller 
-      *taxeringsvärde* i kronor (småhus).",
+      <i>**Pris** avser genomsnitt i kronor per kvadratmeter (flerbostadshus) eller 
+      taxeringsvärde (småhus).</i>",
     color = "Kommun",
     caption = 
-      "**Data** SCB & Svensk Mäklarstatistik **R packages**
-      {tidyverse, fs, showtext, gganimate, ggtext, scales} 
-      **Code** github.com/hugoakerstrand/swedish_politics"
+      "**Data:** SCB & Svensk Mäklarstatistik &emsp;| **Code:** github.com/hugoakerstrand/swedish_politics"
   ) +
   
   # Create dot plot layer
-  geom_point(aes(x = Antal, y = Pris, color = Kommun, group = Kommun), size = 2, alpha = 0.5) +
+  geom_point(aes(x = Antal, y = Pris, color = Kommun, group = Kommun), size = 1.75, alpha = 0.5) +
   
   # Custom scale formatting
   scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
@@ -99,22 +96,22 @@ plot <- plot_data |>
   
   # Custom theme options
   theme(
-    plot.title = element_markdown(size = 9, family = title_font),
+    plot.title = element_markdown(size = 11, family = title_font),
     plot.subtitle = element_textbox(
       size = 4.5, 
-      width = unit(9.5, "cm"),
+      width = unit(9.75, "cm"),
       lineheight = 1.3,
-      padding = margin(2, 0, 2, 2),
+      padding = margin(2, 0, 2, 2.1),
       margin = margin(0, 0, 7, 0),
       halign = 0
     ),
     strip.text = element_markdown(size = 5, family = body_font),
     plot.caption = element_textbox(
       size = 4.5, 
-      width = unit(9.5, "cm"),
+      width = unit(15, "cm"),
       lineheight = 1.3,
-      padding = margin(2, 0, 2, 2),
-      margin = margin(0, 0, 7, 0),
+      padding = margin(0, 0, 0, 0),
+      margin = margin(0.2, 0, 0, 5.85, unit = "cm"),
       halign = 0
     ),
     axis.text = element_text(size = 4.5),
@@ -136,3 +133,6 @@ plot <- plot_data |>
 
 animated_plot <- animate(plot, width = 15, height = 7.75, units = "cm", res = 285, end_pause = 15)
 animated_plot
+
+plot_path <- path_abs("2025/20251204_hus_pris_antal/pris_hus_antal.gif")
+anim_save(plot_path)

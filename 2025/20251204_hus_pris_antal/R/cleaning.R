@@ -339,21 +339,26 @@ response <- request(smahus_url) |>
 # Get the response as text and convert using rjstat
 json_text <- resp_body_string(response)
 
+# Data wrangling
 price_smahus <- fromJSONstat(json_text)[[1]] |> 
   as_tibble() |> 
   mutate(
     år = as.integer(år),
-    fastighetstyp = "SMÅHUS",
+    fastighetstyp = "Småhus",
     Kommun = region,
     Pris = value * 1000
     ) |> 
   rename(Hustyp = fastighetstyp, År = år) |> 
   select(Kommun, År, Pris, Hustyp) |> 
   {\(data) split(data, data$Kommun)}() |> 
-  {\(data) tibble(
-    Kommun = tolower(names(data)), 
-    kommun = str_replace_all(Kommun, c("ö" = "o", "å" = "a", "ä" = "a", "Ö" = "O", "Å" = "A", "Ä" = "A")),
-    price_smahus = data
+  {\(data) 
+    tibble(
+      Kommun = tolower(names(data)), 
+      kommun = str_replace_all(
+        Kommun, 
+        c("ö" = "o", "å" = "a", "ä" = "a", "Ö" = "O", "Å" = "A", "Ä" = "A")
+        ),
+      price_smahus = data
     )
   }()
 
@@ -674,7 +679,8 @@ query_json_str_utbud <- {'{
       "selection": {
         "filter": "item",
         "values": [
-          "2"
+          "2",
+          "3"
         ]
       }
     }
@@ -693,6 +699,7 @@ response <- request(utbud_url) |>
 # Get the response as text and convert using rjstat
 json_text <- resp_body_string(response)
 
+# Data wrangling
 utbud_smahus_brf <- fromJSONstat(json_text)[[1]] |> 
   as_tibble() |>
   mutate(
@@ -706,36 +713,39 @@ utbud_smahus_brf <- fromJSONstat(json_text)[[1]] |>
     .by = all_of(c("Kommun", "År", "Hustyp"))
   ) |> 
   {\(data) split(data, data$Kommun)}() |> 
-  {\(data) tibble(
-    Kommun = tolower(names(data)), 
-    kommun = str_replace_all(Kommun, c("ö" = "o", "å" = "a", "ä" = "a", "Ö" = "O", "Å" = "A", "Ä" = "A")),
-    utbud = data
-  )
+  {\(data) 
+    tibble(
+      Kommun = tolower(names(data)), 
+      kommun = str_replace_all(
+        Kommun, 
+        c("ö" = "o", "å" = "a", "ä" = "a", "Ö" = "O", "Å" = "A", "Ä" = "A")
+      ),
+      utbud = data
+    )
   }()
 
-# Commondium price
+# Commondium prices from bostadsratter_scrape.R
 raw_data <- dir_ls("2025/20251204_hus_pris_antal/data/raw/")
 
 bostadsratter_pris <- readRDS(str_subset(raw_data, "rds"))
 
-# Drop row 50 since it matches multiple rows
+# Drop multiple matcher "habo"
 bostadsratter_pris <- bostadsratter_pris |> 
-  slice(-50)
+  filter(!kommun %in% "habo")  
 
-# Join all data
-bostadsratter_pris |> 
+# Join all data into a single object
+cleaned_data <- bostadsratter_pris |> 
   left_join(price_smahus, by = join_by(kommun)) |> 
-  left_join(utbud_smahus_brf, by = join_by(kommun))
-
-bostadsratter_pris <- map(maklar_data, \(data) read_xlsx(data, sheet = 2, skip = 2)) |> 
-  setNames(str_extract(maklar_data, "\\w*(?=\\.xlsx)")) |> 
-  bind_rows(.id = "region") |> 
-  mutate(Hustyp = "FLERBOST", Annotering_bostadsratter = "kr/kvm") |> 
-  rename(Pris = `kr/kvm`, Kommun = region)
+  left_join(select(utbud_smahus_brf, kommun, utbud), by = join_by(kommun)) |> 
+  
+  # Clean up data before saving to file
+  select(!c(kommun, index, url)) |> 
+  relocate(Kommun, .after = lan) |> 
+  rename_with(str_to_title) |> 
+  rename(Prices_brf = Prices) |> 
+  mutate(across(c(Lan, Kommun), str_to_title))
 
 # Spara cleaned data
-clean_path <- path_abs("2025/20251204_hus_pris_antal/data/clean/")
-file_names <- c("/bostadsratter_pris.txt", "/utbud.txt", "/smahus_pris.txt")
-list(bostadsratter_pris = bostadsratter_pris, utbud = utbud, smahus_pris = smahus_pris) |> 
-  map2(file_names, \(data, file_names) write_delim(data, file = paste0(clean_path, file_names), delim = "\t"))
+clean_path <- path_abs("2025/20251204_hus_pris_antal/data/clean/cleaned_data.rds")
+write_rds(cleaned_data, clean_path)
 

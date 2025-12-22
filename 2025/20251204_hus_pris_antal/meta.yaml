@@ -6,6 +6,7 @@ data_source_1:
   "https://www.statistikdatabasen.scb.se/pxweb/sv/ssd/START__BO__BO0501__BO0501B/FastprisSHRegionAr/"
 data_source_2:
   title: "Antal lägenheter efter region, hustyp och upplåtelseform (inklusive specialbostäder). År 1990 - 2024"
+  description: "Number of respective house type, per municipality."
   url: |
   "https://www.statistikdatabasen.scb.se/pxweb/sv/ssd/START__BO__BO0104__BO0104D/BO0104T04/"
 data_source_3:

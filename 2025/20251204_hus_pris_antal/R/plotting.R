@@ -1,152 +1,138 @@
 library(tidyverse)
-library(fs)
 library(gganimate)
-# library(ggtext)
+library(fs)
+library(ggtext)
+library(showtext)
 library(scales)
-library(marquee)
+
+# Fonts
+font_add_google("DM Serif Text", "DM")
+showtext_auto()
+showtext_opts(dpi = 280)
+
+body_font <- "DM"
+title_font <- "DM"
 
 # Read in data
-data_path <- dir_ls("2025/20251204_hus_pris_antal/data/clean/")
-data <- map(data_path, read_delim) |> 
-  setNames(str_extract(data_path, "\\w*(?=\\.txt)"))
+data <- dir_ls("2025/20251204_hus_pris_antal/data/clean/") |> read_rds()
 
-# Join data
-joined_data <- left_join(data$utbud, data$bostadsratter_pris) |> 
-  # Add in the price data for Småhus
-  rows_update(
-    data$smahus_pris |> select(Kommun, År, Hustyp, Pris),
-    by = c("Kommun", "År", "Hustyp"), 
-    unmatched = "ignore"
-  ) |> 
-  # Force start year from 1996 (complete data)
-  filter(År >= 1996) |> 
-  # Calculate percent increase over start year
-  mutate(
-    price_index = Pris / first(Pris),
-    antal_index = Antal / first(Antal), 
-    .by = c(Kommun, Hustyp))
+# Subset to complete data (i.e. rows == 29, 1996-2024)
+complete_brf_data <- data$Prices_brf |> 
+  map_lgl(function(brf_data) {
+  row <- ifelse(nrow(brf_data) |> is.null(), 0, nrow(brf_data))
+  row == 29
+}) 
 
-# Calculate the scaling factor based on max values
-max_smahus <- joined_data |> 
-  filter(Hustyp == "SMÅHUS") |> 
-  pull(Pris) |> 
-  max(na.rm = TRUE)
+data <- data |> filter(complete_brf_data) |> drop_na(Kommun)
 
-max_flerbost <- joined_data |> 
-  filter(Hustyp == "FLERBOST") |> 
-  pull(Pris) |> 
-  max(na.rm = TRUE)
+# Separate objects by `Hustyp`
+hustyp_id <- c("småhus", "flerbostadshus")
 
-scale_factor <- max_smahus / max_flerbost
+# Create object to plot data from: combining `utbud` (availability) and 
+# `pris` (cost)
+plot_data <- map(hustyp_id, function(hustyp_id) {
+  
+  # Availability data from SCB
+  utbud_data <- data$Utbud |> 
+    bind_rows() |> 
+    filter(Hustyp == hustyp_id) |> 
+    select(Kommun, År, Antal)
+  
+  # Price data from SCB (`småhus`) else Svensk mäklarstatistik
+  price_data <- if(hustyp_id == "småhus") {
+    data$Price_smahus |> 
+      bind_rows()
+    
+  } else {
+    data$Prices_brf |>
+      set_names(data$Kommun) |> 
+      bind_rows(.id = "Kommun") |> 
+      rename(År = ar, Pris = kr_per_kvm)
+  }
+  
+  # Join data into single object
+  left_join(utbud_data, price_data, by = join_by(Kommun, År))
+  
+}) |> 
+  setNames(hustyp_id) |> 
+  bind_rows(.id = "Hustyp") |> 
+  
+  # Add back information about region (`Län`)
+  left_join(select(data, Lan, Kommun), by = join_by(Kommun)) |> 
+  
+  # Remove observations before 1996
+  filter(År >= 1996)
 
-# Plot
-p <- ggplot() +
-    # Labels
-  labs(
-    subtitle = "Samhället behöver fungerande marknader, vilket ytterst är politikens ansvar att rå för. I våra våra största kommuner har priserna stuckit iväg 
-       med flera hundra procent, utan att nödväntigtvis följa utbud. Fungerar en sådan 
-       marknad som den utvecklats under de senaste 30 åren? Hur ska vi får fart på prisvärda 
-       småhus givet dess prisutveckling och en fabläss för att bygga bostadsrätter?",
-    caption = "**Data**: SCB & Svensk Mäklarstatistik | **R packages**: {tidyverse, fs, gganimate, ggtext, scales} | **Code**: github.com/hugoakerstrand/swedish_politics",
-    tag = "{round(frame_along)}"
-  ) +
-    # Points
-    geom_line(data = filter(joined_data, Hustyp == "SMÅHUS"), 
-               aes(x = Antal, y = Pris, color = Kommun), size = 0.75) +
-    geom_line(data = filter(joined_data, Hustyp == "FLERBOST"), 
-               aes(x = Antal, y = Pris * scale_factor, color = Kommun),
-               size = 0.75) +
-    geom_point(data = filter(joined_data, Hustyp == "SMÅHUS"), 
-               aes(x = Antal, y = Pris, color = Kommun, group = seq_along(År)), 
-               size = 0.75) +
-    geom_point(data = filter(joined_data, Hustyp == "FLERBOST"), 
-               aes(x = Antal, y = Pris * scale_factor, color = Kommun, group = seq_along(År)), 
-               size = 0.75) +
-    # Double y axis
-    scale_y_continuous(
-      labels = label_number(scale_cut = cut_short_scale()),
-      name = "Värdering (Småhus)",
-      sec.axis = sec_axis(~ . / scale_factor, name = "Värdering (Bostadsrätt, kr/m<sup>2</sup>)", labels = label_number(scale_cut = cut_short_scale()))
-    ) +
-    # Wrap by Kommun
-    # facet_wrap(~ Hustyp, scales = "free", labeller = as_labeller(c(
-      # "SMÅHUS" = "Småhus (kr)",
-      # "FLERBOST" = "Bostadsrätt (kr/m<sup>2</sup>)"
-    # ))) +
-    # Large year text in background
-    ggtitle("**En fungerande bostadsmarknad?**") +
-    # Y scale
-    # scale_y_continuous(labels = label_number(scale_cut = cut_short_scale()), name = "Genomsnittlig värdering i kommun") +
-    scale_x_continuous(labels = label_number(big.mark = " "), name = "Antal bostäder") +
-    # Theme
-    theme(
-      plot.title = element_markdown(size = 7),
-      plot.subtitle = element_textbox(size = 5),
-      strip.text = element_markdown(size = 5),
-      plot.caption = element_markdown(size = 4),
-      axis.text = element_text(size = 4.5),
-      axis.title.y.right = element_markdown(size = 4.5),
-      axis.title = element_text(size = 5),
-      legend.position = "none",
-      plot.tag = element_markdown(hjust = 0, size = 15, face = "bold", color = "grey75"),
-      plot.tag.position = c(0.45, 0.5)
-    ) +
-  # Animate by year 
-  transition_reveal(År) 
+# Plot data
 
-p <- ggplot() +
+plot <- plot_data |> 
+  
+  # Initiate ggplot object
+  ggplot() + 
+  
   # Labels
   labs(
-    subtitle = "Samhället behöver fungerande marknader, vilket ytterst är politikens ansvar att rå för. I våra våra största kommuner har priserna stuckit iväg 
-       med flera hundra procent, utan att nödväntigtvis följa utbud. Fungerar en sådan 
-       marknad som den utvecklats under de senaste 30 åren? Hur ska vi får fart på prisvärda 
-       småhus givet dess prisutveckling och en fabläss för att bygga bostadsrätter?",
-    caption = "**Data**: SCB & Svensk Mäklarstatistik | **R packages**: {tidyverse, fs, gganimate, marquee, scales} | **Code**: github.com/hugoakerstrand/swedish_politics",
-    tag = "{round(frame_along)}"
+    title = "Bostadsrätter och småhus i Sverige, utbud och pris för år 
+    {floor(frame_time)}", 
+    subtitle = "Bostadsbyggandet de senaste 30 åren har dominerats av 
+      flerbostäder (bostadsrätter) i Stockholm; småhus har i princip inte byggts.  
+      Samtidigt har priserna ökat för småhus och flerbostadshus i hela riket, 
+      vilket gör det svårt att komma in på marknaden och skapat  
+      stora skillnader i förmögenhet mellan generationerna.
+      <br>
+      <br>
+      **Pris** avser *kronor per kvadratmeter* (flerbostadshus) eller 
+      *taxeringsvärde* i kronor (småhus).",
+    color = "Kommun",
+    caption = 
+      "**Data** SCB & Svensk Mäklarstatistik **R packages**
+      {tidyverse, fs, showtext, gganimate, ggtext, scales} 
+      **Code** github.com/hugoakerstrand/swedish_politics"
   ) +
-  # Points
-  geom_line(data = filter(joined_data, Hustyp == "SMÅHUS"), 
-            aes(x = Antal, y = Pris, color = Kommun), size = 0.75) +
-  geom_line(data = filter(joined_data, Hustyp == "FLERBOST"), 
-            aes(x = Antal, y = Pris * scale_factor, color = Kommun),
-            size = 0.75) +
-  geom_point(data = filter(joined_data, Hustyp == "SMÅHUS"), 
-             aes(x = Antal, y = Pris, color = Kommun, group = seq_along(År)), 
-             size = 0.75) +
-  geom_point(data = filter(joined_data, Hustyp == "FLERBOST"), 
-             aes(x = Antal, y = Pris * scale_factor, color = Kommun, group = seq_along(År)), 
-             size = 0.75) +
-  # Double y axis
-  scale_y_continuous(
-    labels = label_number(scale_cut = cut_short_scale()),
-    name = "Värdering (Småhus)",
-    sec.axis = sec_axis(~ . / scale_factor, name = "Värdering (Bostadsrätt, kr/m<sup>2</sup>)", labels = label_number(scale_cut = cut_short_scale()))
-  ) +
-  # Wrap by Kommun
-  # facet_wrap(~ Hustyp, scales = "free", labeller = as_labeller(c(
-  # "SMÅHUS" = "Småhus (kr)",
-  # "FLERBOST" = "Bostadsrätt (kr/m<sup>2</sup>)"
-  # ))) +
-  # Large year text in background
-  ggtitle("**En fungerande bostadsmarknad?**") +
-  # Y scale
-  # scale_y_continuous(labels = label_number(scale_cut = cut_short_scale()), name = "Genomsnittlig värdering i kommun") +
-  scale_x_continuous(labels = label_number(big.mark = " "), name = "Antal bostäder") +
-  # Theme
+  
+  # Create dot plot layer
+  geom_point(aes(x = Antal, y = Pris, color = Kommun, group = Kommun), size = 2, alpha = 0.5) +
+  
+  # Custom scale formatting
+  scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
+  scale_x_continuous(labels = label_number(big.mark = " "), name = "Antal") +
+  
+  # Custom theme options
   theme(
-    plot.title = element_marquee(size = 7),
-    plot.subtitle = element_marquee(size = 5),
-    strip.text = element_marquee(size = 5),
-    plot.caption = element_marquee(size = 4),
+    plot.title = element_markdown(size = 9, family = title_font),
+    plot.subtitle = element_textbox(
+      size = 4.5, 
+      width = unit(9.5, "cm"),
+      lineheight = 1.3,
+      padding = margin(2, 0, 2, 2),
+      margin = margin(0, 0, 7, 0),
+      halign = 0
+    ),
+    strip.text = element_markdown(size = 5, family = body_font),
+    plot.caption = element_textbox(
+      size = 4.5, 
+      width = unit(9.5, "cm"),
+      lineheight = 1.3,
+      padding = margin(2, 0, 2, 2),
+      margin = margin(0, 0, 7, 0),
+      halign = 0
+    ),
     axis.text = element_text(size = 4.5),
-    axis.title.y.right = element_marquee(size = 4.5),
     axis.title = element_text(size = 5),
-    legend.position = "none",
-    plot.tag = element_text(hjust = 0, size = 15, face = "bold", color = "grey75"),
-    plot.tag.position = c(0.45, 0.5)
-  )  +
+    legend.position = "right",
+    legend.text = element_text(size = 4, family = body_font),
+    legend.key.size = unit(0.2, "cm"),
+    legend.title = element_text(size = 5, family = title_font)
+  ) +
+  
+  # Wrap by house type
+  facet_wrap(~ Hustyp, scales = "free_y", labeller = labeller(Hustyp = c(flerbostadshus = "Flerbostadshus", småhus = "Småhus"))) +
+  
+  # Distribute color guide by rows
+  guides(color = guide_legend(nrow = 13)) +
+  
   # Animate by year 
-  transition_reveal(År)
+  transition_time(År)
 
-# Animate
-animate(p, width = 10, height = 5, units = "cm", res = 285, end_pause = 15)
+animated_plot <- animate(plot, width = 15, height = 7.75, units = "cm", res = 285, end_pause = 15)
+animated_plot

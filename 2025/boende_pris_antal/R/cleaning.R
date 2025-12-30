@@ -725,7 +725,7 @@ utbud_smahus_brf <- fromJSONstat(json_text)[[1]] |>
   }()
 
 # Commondium prices from bostadsratter_scrape.R
-raw_data <- dir_ls("2025/20251204_hus_pris_antal/data/raw/")
+raw_data <- dir_ls("2025/boende_pris_antal/data/raw/")
 
 bostadsratter_pris <- readRDS(str_subset(raw_data, "rds"))
 
@@ -746,6 +746,6 @@ cleaned_data <- bostadsratter_pris |>
   mutate(across(c(Lan, Kommun), str_to_title))
 
 # Spara cleaned data
-clean_path <- path_abs("2025/20251204_hus_pris_antal/data/clean/cleaned_data.rds")
+clean_path <- path_abs("2025/boende_pris_antal/data/clean/cleaned_data.rds")
 write_rds(cleaned_data, clean_path)
 

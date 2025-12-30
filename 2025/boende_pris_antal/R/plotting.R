@@ -14,7 +14,7 @@ body_font <- "DM"
 title_font <- "DM"
 
 # Read in data
-data <- dir_ls("2025/20251204_hus_pris_antal/data/clean/") |> read_rds()
+data <- dir_ls("2025/boende_pris_antal/data/clean/") |> read_rds()
 
 # Subset to complete data (i.e. rows == 29, 1996-2024)
 complete_brf_data <- data$Prices_brf |> 
@@ -73,15 +73,17 @@ plot <- plot_data |>
   # Labels
   labs(
     title = "Utbud och pris för flerbostäder och småhus år {floor(frame_time)}", 
-    subtitle = "Bostadsbyggandet de senaste 30 åren har dominerats av 
-      flerbostäder (bostadsrätter) i Stockholm; småhus har i princip inte byggts.  
-      Samtidigt har priserna ökat för småhus och flerbostadshus i hela riket, 
-      vilket gör det svårt att komma in på marknaden och skapat  
-      stora skillnader i förmögenhet mellan generationerna.
+    subtitle = "De senaste 30 åren har en assymetri uppståt på bostadsmarknaden 
+      med en stor ökning av flerbostäder (bostadsrätter) i Stockholm och en 
+      blygsam takt i andra kommuner. Småhus har i princip inte byggts.  
+      Samtidigt har priserna ökat i båda bostadsformerna och hela riket, 
+      vilket gör det svårt att komma in på marknaden och skapat stora skillnader 
+      i förmögenhet mellan generationerna.
       <br>
       <br>
       <i>**Pris** avser genomsnitt i kronor per kvadratmeter (flerbostadshus) eller 
-      taxeringsvärde (småhus).</i>",
+      taxeringsvärde (småhus).  
+      **Kommuner** är begränsade till de med komplett data för 1996-2024. </i>",
     color = "Kommun",
     caption = 
       "**Data:** SCB & Svensk Mäklarstatistik &emsp;| **Code:** github.com/hugoakerstrand/swedish_politics"
@@ -134,5 +136,5 @@ plot <- plot_data |>
 animated_plot <- animate(plot, width = 15, height = 7.75, units = "cm", res = 285, end_pause = 15)
 animated_plot
 
-plot_path <- path_abs("2025/20251204_hus_pris_antal/pris_hus_antal.gif")
+plot_path <- path_abs("2025/boende_pris_antal/boende_pris_antal.gif")
 anim_save(plot_path)
